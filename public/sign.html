@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- Professional Messenger Card Metadata -->
+    <meta property="og:title" content="Digital Agreement Signature | Nica.Lmk.Corp">
+    <meta property="og:description" content="Securely review and sign your digital agreement. Legally binding electronic signature portal provided by Nica Lmk Corp Infrastructure.">
+    <meta property="og:image" content="https://cdn-icons-png.flaticon.com/512/2845/2845944.png">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Nica Lmk Corp">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    
+    <title>Digital Agreement | Nica.Lmk.Corp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        #sigPad { touch-action: none; background: white; cursor: crosshair; }
+        
+        /* Ensure overlay strictly respects dynamic viewport height to avoid being pushed down by Messenger/browser headers */
+        #signingOverlay { width: 100vw; height: 100vh; height: 100dvh; }
+        
+        @media screen and (orientation: portrait) {
+            #signingOverlay { transform: rotate(90deg); transform-origin: center; width: 100vh !important; width: 100dvh !important; height: 100vw !important; top: 50%; left: 50%; translate: -50% -50%; position: fixed; }
+        }
+        @media screen and (orientation: landscape) {
+            #signingOverlay { transform: none; width: 100vw !important; height: 100vh !important; height: 100dvh !important; top: 0; left: 0; translate: 0 0; position: fixed; }
+        }
+        
+        #clearBtn, #actionBtns { bottom: max(1.5rem, env(safe-area-inset-bottom)); }
+        .is-iphone #clearBtn, .is-iphone #actionBtns { bottom: 1.5rem !important; }
+        
+        .animate-pop { animation: pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        @keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        /* IMPROVED SCROLLING: Focused inputs sit higher with scroll-margin-top */
+        input { scroll-margin-top: 120px; }
+        .keyboard-spacer { height: 60vh; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col overflow-x-hidden overflow-y-auto">
+
+    <!-- Loading Screen -->
+    <div id="loader" class="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-8 transition-opacity duration-500">
+        <div class="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+        <p class="text-xs font-black text-blue-600 uppercase tracking-widest animate-pulse">Initializing Secure Connection...</p>
+    </div>
+
+    <!-- Error Screen -->
+    <div id="errorScreen" class="hidden fixed inset-0 z-[150] bg-white flex flex-col items-center justify-center p-8 text-center">
+        <div class="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" cy="8" x2="12" y2="12"/><line x1="12" cy="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <h2 class="text-xl font-black text-slate-900 mb-2">Failed to load contract data.</h2>
+        <p class="text-slate-500 text-sm mb-8">This link may be expired, already signed, or incorrect.</p>
+        <button onclick="window.location.reload()" class="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg">Retry Connection</button>
+    </div>
+
+    <!-- Main Content Container -->
+    <div id="main" class="hidden flex-1 flex flex-col items-center py-8 px-4 max-w-lg mx-auto w-full">
+        <div class="text-center mb-8">
+            <h1 class="text-2xl font-black text-slate-900 tracking-tighter">Nica.<span class="text-blue-600">Lmk</span>.Corp</h1>
+            <p class="text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] mt-1">Digital Infrastructure</p>
+        </div>
+
+        <div class="w-full bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100 space-y-6">
+            <div class="text-center">
+                <h2 class="text-xl font-black text-slate-900">Agreement Details</h2>
+                <p id="docTypeLabel" class="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">Agreement</p>
+            </div>
+
+            <div id="particulars" class="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-3">
+                <!-- Dynamically populated -->
+            </div>
+
+            <div class="p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+                <p class="text-[10px] font-bold text-blue-700 text-center leading-relaxed italic">
+                    "I have reviewed the particulars above and they are correct."
+                </p>
+            </div>
+
+            <!-- MANDATORY LEGAL NOTICE BOX -->
+            <div class="p-4 bg-amber-50 border border-amber-100 rounded-2xl shadow-sm">
+                <p class="text-[10px] font-black text-amber-800 text-center uppercase leading-relaxed tracking-tight">
+                    NOTICE: THIS DOCUMENT CONSTITUTES A BINDING PUBLIC AGREEMENT AND MAY BE USED FOR LEGAL PURPOSES IF NECESSARY. ALL DETAILS PROVIDED MUST BE TRUTHFUL AND LEGALLY ACCURATE.
+                </p>
+            </div>
+
+            <div class="space-y-4">
+                <div class="space-y-1.5">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Your Full Name</label>
+                    <input type="text" id="signerName" onfocus="handleInputFocus(this)" placeholder="Enter Full Legal Name" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all">
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Current Address</label>
+                    <input type="text" id="signerAddress" onfocus="handleInputFocus(this)" placeholder="Enter Complete Address" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all">
+                </div>
+            </div>
+
+            <button onclick="showTerms()" class="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all text-xs uppercase tracking-widest mt-4">
+                Review Agreement
+            </button>
+        </div>
+        
+        <!-- Bottom Spacer to allow centering inputs when keyboard is active -->
+        <div class="keyboard-spacer"></div>
+    </div>
+
+    <!-- Terms Overlay -->
+    <div id="termsOverlay" class="hidden fixed inset-0 z-[200] bg-white flex flex-col animate-in slide-in-from-bottom duration-300">
+        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+            <div>
+                <h3 class="text-lg font-black text-slate-900 leading-none">Agreement Terms</h3>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Please read carefully</p>
+            </div>
+            <button onclick="hideTerms()" class="p-2 bg-slate-100 rounded-full text-slate-400">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-8 text-slate-600 text-xs leading-relaxed whitespace-pre-wrap no-scrollbar" id="termsBody">
+            <!-- Populated -->
+        </div>
+        <div class="p-6 bg-white border-t border-slate-100 shrink-0">
+            <button onclick="showSignature()" class="w-full py-5 bg-emerald-600 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all text-xs uppercase tracking-widest">
+                I Agree & Proceed
+            </button>
+        </div>
+    </div>
+
+    <!-- Signing Overlay -->
+    <div id="signingOverlay" class="hidden fixed inset-0 z-[300] bg-white flex flex-col overflow-hidden">
+        <div class="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-[80%] bg-rose-50 border border-rose-200 p-3 rounded-xl shadow-sm text-center">
+            <p class="text-[9px] font-black text-rose-600 uppercase tracking-widest leading-none">Signature required. Use Finger or Stylus.</p>
+        </div>
+        <div class="flex-1 relative flex overflow-hidden">
+            <canvas id="sigPad" class="w-full h-full"></canvas>
+            <button id="clearBtn" onclick="clearPad()" class="absolute left-6 py-3 px-6 bg-slate-100 text-slate-500 font-black rounded-xl text-[10px] uppercase tracking-widest border border-slate-200 shadow-lg z-50">Clear</button>
+            <div id="actionBtns" class="absolute right-6 flex gap-2 z-50">
+                <button onclick="hideSignature()" class="py-3 px-6 bg-slate-100 text-slate-400 font-bold rounded-xl text-[10px] uppercase tracking-widest shadow-lg">Back</button>
+                <button id="submitBtn" onclick="finalize()" class="py-3 px-8 bg-slate-900 text-white font-black rounded-xl text-[10px] uppercase tracking-widest shadow-lg">Submit Final</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Screen -->
+    <div id="successScreen" class="hidden fixed inset-0 z-[400] bg-white flex flex-col items-center justify-center p-8 text-center animate-pop">
+        <div class="w-24 h-24 bg-emerald-50 rounded-[2.5rem] flex items-center justify-center mb-8 text-emerald-500 shadow-inner">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10.01 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h2 class="text-3xl font-black text-slate-900 mb-2">Success!</h2>
+        <p class="text-slate-500 text-sm font-medium leading-relaxed max-w-xs">Your signed agreement has been encrypted and saved to the corporate ledger.</p>
+        <p class="text-slate-300 text-[10px] font-bold uppercase tracking-widest mt-12">You may now close this window</p>
+    </div>
+
+    <script>
+        const isIPhone = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isIPhone) document.body.classList.add('is-iphone');
+
+        let draftData = null;
+        let scriptUrl = null;
+        let draftId = null;
+        
+        const canvas = document.getElementById('sigPad');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let hasSigned = false;
+
+        window.onload = async function() {
+            const params = new URLSearchParams(window.location.search);
+            
+            // Shortened parameter support
+            const scriptId = params.get('s');
+            draftId = params.get('d') || params.get('draftId');
+            scriptUrl = params.get('url');
+
+            if (scriptId) {
+                scriptUrl = `https://script.google.com/macros/s/${scriptId}/exec`;
+            }
+
+            if (!scriptUrl || !draftId) {
+                showError();
+                return;
+            }
+
+            try {
+                const response = await fetch(`${scriptUrl}?mode=getDraft&draftId=${draftId}`);
+                const result = await response.json();
+                
+                if (result.status === 'success' && result.data) {
+                    draftData = result.data;
+                    renderUI();
+                    document.getElementById('loader').classList.add('opacity-0');
+                    setTimeout(() => {
+                        document.getElementById('loader').classList.add('hidden');
+                        document.getElementById('main').classList.remove('hidden');
+                    }, 500);
+                } else {
+                    showError();
+                }
+            } catch (e) {
+                console.error(e);
+                showError();
+            }
+        };
+
+        function handleInputFocus(el) {
+            // Scroll HIGHER by using block: "start"
+            setTimeout(function() {
+                el.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 450);
+        }
+
+        function showError() {
+            document.getElementById('loader').classList.add('hidden');
+            document.getElementById('errorScreen').classList.remove('hidden');
+        }
+
+        function getOrdinal(n) {
+            const s = ["th", "st", "nd", "rd"];
+            const v = n % 100;
+            return s[(v - 20) % 10] || s[v] || s[0];
+        }
+
+        function renderUI() {
+            const container = document.getElementById('particulars');
+            const type = draftData.type || 'debt';
+            const label = document.getElementById('docTypeLabel');
+            
+            let mainLabel = "Total Amount";
+            if (type === 'rent') {
+                label.innerText = 'Rental Booking';
+                mainLabel = "Rental Price";
+            } else if (type === 'investor') {
+                label.innerText = 'Investment Terms';
+                mainLabel = "Principal Amount";
+            } else {
+                label.innerText = 'Loan Agreement';
+                mainLabel = "Loan Amount";
+            }
+            
+            let html = `
+                <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">${mainLabel}</span>
+                    <span class="text-lg font-black text-slate-900">₱${Number(draftData.amount).toLocaleString()}</span>
+                </div>
+            `;
+
+            if (type === 'rent') {
+                const sDate = new Date(draftData.date);
+                const eDate = new Date(draftData.end_date);
+                let diffDays = Math.ceil(Math.abs(eDate - sDate) / (1000 * 60 * 60 * 24)) + 1;
+                if (isNaN(diffDays)) diffDays = 1;
+
+                html += `
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Car Model</span>
+                        <span class="text-xs font-bold text-slate-700 uppercase">${draftData.car_model || '---'}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Plate Number</span>
+                        <span class="text-xs font-bold text-slate-700 uppercase">${draftData.plate_number || '---'}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Rental Dates</span>
+                        <span class="text-xs font-bold text-slate-700">${draftData.date} to ${draftData.end_date}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Rental Duration</span>
+                        <span class="text-xs font-bold text-slate-700">${diffDays} Day${diffDays > 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Distance Limit</span>
+                        <span class="text-xs font-bold text-slate-700 uppercase">${draftData.distance_limit || (diffDays * 300)} km Total</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Driver Option</span>
+                        <span class="text-xs font-bold text-slate-700 uppercase">${draftData.driver_option === 'with_driver' ? 'With Driver' : 'Self Drive'}</span>
+                    </div>
+                `;
+            } else if (type === 'investor') {
+                const investDate = new Date(draftData.date);
+                const day = investDate.getDate();
+                const ordinal = getOrdinal(day);
+
+                html += `
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Return Rate</span>
+                        <span class="text-xs font-bold text-slate-700 uppercase">${draftData.rate}% Monthly</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Monthly Payout Amount</span>
+                        <span class="text-xs font-bold text-slate-700 uppercase">₱${Number(draftData.payout_amount || 0).toLocaleString()}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Date Invested</span>
+                        <span class="text-xs font-bold text-slate-700">${draftData.date}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Payout Day</span>
+                        <span class="text-xs font-bold text-slate-700">Every ${day}${ordinal} of month</span>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Term Type</span>
+                        <span class="text-xs font-bold text-slate-700 uppercase">${draftData.term || '---'}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-[9px] font-black text-slate-400 uppercase">Period</span>
+                        <span class="text-xs font-bold text-slate-700 uppercase">${draftData.period || '---'}</span>
+                    </div>
+                `;
+                
+                if (draftData.amount_per_due && draftData.term !== 'One payment') {
+                    html += `
+                        <div class="flex justify-between">
+                            <span class="text-[9px] font-black text-slate-400 uppercase">Amount Per Period</span>
+                            <span class="text-xs font-bold text-slate-700 uppercase">₱${Number(draftData.amount_per_due).toLocaleString()}</span>
+                        </div>
+                    `;
+                }
+            }
+
+            container.innerHTML = html;
+            document.getElementById('termsBody').innerText = draftData.terms_content;
+        }
+
+        function showTerms() {
+            const name = document.getElementById('signerName').value.trim();
+            const addr = document.getElementById('signerAddress').value.trim();
+            if (!name || !addr) {
+                alert("Please fill in your name and address first.");
+                return;
+            }
+            document.getElementById('termsOverlay').classList.remove('hidden');
+        }
+
+        function hideTerms() {
+            document.getElementById('termsOverlay').classList.add('hidden');
+        }
+
+        function showSignature() {
+            document.getElementById('termsOverlay').classList.add('hidden');
+            document.getElementById('signingOverlay').classList.remove('hidden');
+            resizeCanvas();
+            initDrawing();
+        }
+
+        function hideSignature() {
+            document.getElementById('signingOverlay').classList.add('hidden');
+            document.getElementById('termsOverlay').classList.remove('hidden');
+        }
+
+        function resizeCanvas() {
+            const ratio = window.devicePixelRatio || 1;
+            const newWidth = canvas.offsetWidth * ratio;
+            const newHeight = canvas.offsetHeight * ratio;
+            
+            if (canvas.width === newWidth && canvas.height === newHeight) return;
+            
+            let tempCanvas = null;
+            if (hasSigned) {
+                tempCanvas = document.createElement('canvas');
+                tempCanvas.width = canvas.width;
+                tempCanvas.height = canvas.height;
+                tempCanvas.getContext('2d').drawImage(canvas, 0, 0);
+            }
+            
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(ratio, ratio);
+            ctx.strokeStyle = '#0000FF';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            if (tempCanvas && hasSigned) {
+                ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width / ratio, tempCanvas.height / ratio);
+            }
+        }
+
+        let isDrawingInitialized = false;
+        function initDrawing() {
+            if (isDrawingInitialized) return;
+            isDrawingInitialized = true;
+            
+            window.addEventListener('resize', () => {
+                setTimeout(resizeCanvas, 150);
+            });
+            
+            const start = (e) => {
+                isDrawing = true;
+                hasSigned = true;
+                const pos = getPos(e);
+                lastX = pos.x;
+                lastY = pos.y;
+            };
+            const move = (e) => {
+                if (!isDrawing) return;
+                const pos = getPos(e);
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+                lastX = pos.x;
+                lastY = pos.y;
+                e.preventDefault();
+            };
+            const end = () => isDrawing = false;
+
+            canvas.addEventListener('mousedown', start);
+            canvas.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+            canvas.addEventListener('touchstart', (e) => start(e.touches[0]));
+            canvas.addEventListener('touchmove', (e) => move(e.touches[0]));
+            canvas.addEventListener('touchend', end);
+        }
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            if (window.innerHeight > window.innerWidth) {
+                return {
+                    x: e.clientY - rect.top,
+                    y: rect.right - e.clientX
+                };
+            }
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function clearPad() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            hasSigned = false;
+        }
+
+        function trimCanvas(sourceCanvas) {
+            const context = sourceCanvas.getContext('2d');
+            const width = sourceCanvas.width;
+            const height = sourceCanvas.height;
+            const imageData = context.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            let top = height, bottom = 0, left = width, right = 0;
+            let found = false;
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const alpha = data[((y * width + x) * 4) + 3];
+                    if (alpha > 0) {
+                        if (x < left) left = x;
+                        if (x > right) right = x;
+                        if (y < top) top = y;
+                        if (y > bottom) bottom = y;
+                        found = true;
+                    }
+                }
+            }
+
+            if (!found) return sourceCanvas;
+
+            // Add some padding (scaled by devicePixelRatio if needed, but 20px is usually fine)
+            const padding = 20;
+            left = Math.max(0, left - padding);
+            top = Math.max(0, top - padding);
+            right = Math.min(width, right + padding);
+            bottom = Math.min(height, bottom + padding);
+
+            const trimWidth = right - left;
+            const trimHeight = bottom - top;
+
+            const trimmedCanvas = document.createElement('canvas');
+            trimmedCanvas.width = trimWidth;
+            trimmedCanvas.height = trimHeight;
+            const trimmedContext = trimmedCanvas.getContext('2d');
+
+            trimmedContext.drawImage(sourceCanvas, left, top, trimWidth, trimHeight, 0, 0, trimWidth, trimHeight);
+
+            return trimmedCanvas;
+        }
+
+        async function finalize() {
+            if (!hasSigned) {
+                alert("please sign first before finalizing");
+                return;
+            }
+
+            // For Android, keep the trim logic as it was working perfectly. 
+            // For iPhone, use the simpler logic from the provided code.
+            let sourceCanvas = canvas;
+            if (!isIPhone) {
+                sourceCanvas = trimCanvas(canvas);
+            }
+
+            const tempCanvas = document.createElement('canvas');
+            const maxDim = 300;
+            const scale = Math.min(maxDim / sourceCanvas.width, maxDim / sourceCanvas.height, 1);
+            tempCanvas.width = sourceCanvas.width * scale;
+            tempCanvas.height = sourceCanvas.height * scale;
+            const tCtx = tempCanvas.getContext('2d');
+            tCtx.fillStyle = "#FFFFFF";
+            tCtx.fillRect(0,0,tempCanvas.width,tempCanvas.height);
+            tCtx.drawImage(sourceCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+            const base64 = tempCanvas.toDataURL('image/jpeg', 0.5);
+            
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerText = "Submitting...";
+
+            try {
+                const payload = {
+                    action: "processSignature",
+                    draftId: draftId,
+                    id: draftData.id,
+                    signer_name: document.getElementById('signerName').value,
+                    signer_address: document.getElementById('signerAddress').value,
+                    signature: base64,
+                    type: draftData.type,
+                    amount: draftData.amount,
+                    term: draftData.type === 'rent' ? (draftData.driver_option || 'self') : (draftData.term || ''),
+                    period: draftData.period || '',
+                    amount_per_due: draftData.amount_per_due || ''
+                };
+
+                await fetch(scriptUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(payload)
+                });
+
+                document.getElementById('signingOverlay').classList.add('hidden');
+                document.getElementById('main').classList.add('hidden');
+                document.getElementById('successScreen').classList.remove('hidden');
+            } catch (e) {
+                alert("An error occurred during submission. Try again.");
+                btn.disabled = false;
+                btn.innerText = "Submit Final";
+            }
+        }
+    </script>
+</body>
+</html>
